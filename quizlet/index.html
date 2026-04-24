@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flashcards App</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h1>Flashcards App</h1>
+
+    <div id="study-container" class="hidden">
+      <div id="study-card-render"></div>
+      <div class="study-controls">
+        <button id="next-random-card">Next Card</button>
+        <button
+          id="exit-study"
+          class="delete-deck-btn"
+          style="width: auto; border-radius: 8px; padding: 0 15px"
+        >
+          Exit
+        </button>
+      </div>
+    </div>
+
+    <div id="deck-name-input" class="hidden">
+      <input type="text" id="deck-name" placeholder="Deck name..." />
+      <button id="create-deck">Create Deck</button>
+      <button id="cancel-deck-input" class="hidden">Cancel</button>
+    </div>
+
+    <div id="card-name-input" class="hidden">
+      <input type="text" id="question" placeholder="Question" />
+      <input type="text" id="answer" placeholder="Answer" />
+      <button id="add">Add Card</button>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="decks">
+      <button id="add-deck">Add New Deck</button>
+      <div id="decks-list"></div>
+    </div>
+
+    <div id="flashcards" class="hidden">
+      <div class="nav-buttons">
+        <button id="back-to-decks">← Back to decks</button>
+        <button id="study-mode-btn" class="study-btn">Start Study Mode</button>
+        <button id="back-to-cards" class="hidden">← Back to cards</button>
+      </div>
+      <button id="add-card">Add Card</button>
+      <div id="cards-list"></div>
+    </div>
+
+    <div id="custom-confirm" class="hidden">
+      <div class="confirm-content">
+        <p id="confirm-message"></p>
+        <div class="confirm-btns">
+          <button id="confirm-yes" class="delete-btn">Delete</button>
+          <button id="confirm-no">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="main.js"></script>
+  </body>
+</html>
