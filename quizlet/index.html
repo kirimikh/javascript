@@ -1,70 +1,53 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flashcards App</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <title>Учебные карточки</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <h1>Flashcards App</h1>
-
-    <div id="study-container" class="hidden">
-      <div id="study-card-render"></div>
-      <div class="study-controls">
-        <button id="next-random-card">Next Card</button>
-        <button
-          id="exit-study"
-          class="delete-deck-btn"
-          style="width: auto; border-radius: 8px; padding: 0 15px"
-        >
-          Exit
-        </button>
+    <h2>Управление колодой</h2>
+    <section>
+      <div class="input-group">
+        <input type="text" id="frontText" placeholder="Вопрос (лицо)" />
+        <input type="text" id="backText" placeholder="Ответ (оборот)" />
+        <button id="addBtn">Создать</button>
       </div>
-    </div>
 
-    <div id="deck-name-input" class="hidden">
-      <input type="text" id="deck-name" placeholder="Deck name..." />
-      <button id="create-deck">Create Deck</button>
-      <button id="cancel-deck-input" class="hidden">Cancel</button>
-    </div>
-
-    <div id="card-name-input" class="hidden">
-      <input type="text" id="question" placeholder="Question" />
-      <input type="text" id="answer" placeholder="Answer" />
-      <button id="add">Add Card</button>
-    </div>
-
-    <div id="toast-container"></div>
-
-    <div id="decks">
-      <button id="add-deck">Add New Deck</button>
-      <div id="decks-list"></div>
-    </div>
-
-    <div id="flashcards" class="hidden">
-      <div class="nav-buttons">
-        <button id="back-to-decks">← Back to decks</button>
-        <button id="study-mode-btn" class="study-btn">Start Study Mode</button>
-        <button id="back-to-cards" class="hidden">← Back to cards</button>
+      <div style="margin-bottom: 10px">
+        <button id="shuffleBtn">Перемешать колоду</button>
       </div>
-      <button id="add-card">Add Card</button>
-      <div id="cards-list"></div>
-    </div>
 
-    <div id="custom-confirm" class="hidden">
-      <div class="confirm-content">
-        <p id="confirm-message"></p>
-        <div class="confirm-btns">
-          <button id="confirm-yes" class="delete-btn">Delete</button>
-          <button id="confirm-no">Cancel</button>
-        </div>
+      <table id="deckTable">
+        <thead>
+          <tr>
+            <th>Лицо</th>
+            <th>Оборот</th>
+            <th>Статус</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </section>
+
+    <h2>Режим изучения</h2>
+    <section id="studySection">
+      <div>
+        <label>
+          <input type="checkbox" id="onlyNewFilter" /> Только невыученные
+        </label>
       </div>
-    </div>
+
+      <div class="study-card" id="cardDisplay">Здесь будет карточка</div>
+
+      <div class="controls">
+        <button id="prevBtn">Назад</button>
+        <span id="posInfo">0 / 0</span>
+        <button id="nextBtn">Вперед</button>
+      </div>
+    </section>
 
     <script src="main.js"></script>
   </body>
