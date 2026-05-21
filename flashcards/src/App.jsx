@@ -1,318 +1,276 @@
-import React, { Component } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import DeckManager from "./DeckManager";
+import CardForm from "./CardForm";
+import CardTableRow from "./CardTableRow";
 import "./App.css";
 
-class FlashcardApp extends Component {
-  constructor(props) {
-    super(props);
+function App() {
+  const [decks, setDecks] = useState(() => {
+    return JSON.parse(localStorage.getItem("flashcards-decks") || "{}");
+  });
+  const [currentDeckName, setCurrentDeckName] = useState(() => {
+    return localStorage.getItem("flashcards-current-deck") || "Default";
+  });
 
-    const savedDecks = JSON.parse(
-      localStorage.getItem("flashcards-decks") || "{}",
-    );
-    const savedCurrentDeckName =
-      localStorage.getItem("flashcards-current-deck") || "Default";
+  const [frontText, setFrontText] = useState("");
+  const [backText, setBackText] = useState("");
+  const [newDeckName, setNewDeckName] = useState("");
 
-    this.state = {
-      decks: savedDecks,
-      currentDeckName: savedCurrentDeckName,
-      frontText: "",
-      backText: "",
-      currentIndex: 0,
-      showBack: false,
-      studyOnlyUnlearned: false,
-      newDeckName: "",
-    };
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showBack, setShowBack] = useState(false);
+  const [studyOnlyUnlearned, setStudyOnlyUnlearned] = useState(false);
 
-    this.saveTimer = null;
-  }
+  useEffect(() => {
+    if (
+      Object.keys(decks).length === 0 ||
+      (decks["Default"] && decks["Default"].length === 0)
+    ) {
+      console.log("Запрос к OpenTDB для первой загрузки...");
+      fetch("https://opentdb.com/api.php?amount=50&type=boolean")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.results) {
+            const decodeHTML = (html) => {
+              const txt = document.createElement("textarea");
+              txt.innerHTML = html;
+              return txt.value;
+            };
 
-  componentDidMount() {
-    this.saveTimer = setInterval(() => {
-      localStorage.setItem(
-        "flashcards-decks",
-        JSON.stringify(this.state.decks),
-      );
-      localStorage.setItem(
-        "flashcards-current-deck",
-        this.state.currentDeckName,
-      );
-      console.log("Progress saved automatically");
+            const apiCards = data.results.map((item, index) => ({
+              id: Date.now() + index,
+              front: decodeHTML(item.question),
+              back: decodeHTML(item.correct_answer),
+              learned: false,
+            }));
+
+            setDecks({ Default: apiCards });
+          }
+        })
+        .catch((err) => console.error("Ошибка загрузки API:", err));
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      localStorage.setItem("flashcards-decks", JSON.stringify(decks));
+      localStorage.setItem("flashcards-current-deck", currentDeckName);
+      console.log("Прогресс сохранен в LocalStorage (Интервал)");
     }, 5000);
-  }
 
-  componentWillUnmount() {
-    clearInterval(this.saveTimer);
-  }
+    return () => clearInterval(timer);
+  }, [decks, currentDeckName]);
 
-  getCurrentDeck = () => {
-    return this.state.decks[this.state.currentDeckName] || [];
-  };
+  const currentDeckCards = useMemo(() => {
+    return decks[currentDeckName] || [];
+  }, [decks, currentDeckName]);
 
-  updateCurrentDeck = (newCards) => {
-    this.setState((prevState) => ({
-      decks: {
-        ...prevState.decks,
-        [prevState.currentDeckName]: newCards,
-      },
-    }));
-  };
+  const filteredCards = useMemo(() => {
+    return studyOnlyUnlearned
+      ? currentDeckCards.filter((c) => !c.learned)
+      : currentDeckCards;
+  }, [currentDeckCards, studyOnlyUnlearned]);
 
-  addNewDeck = () => {
-    const { newDeckName, decks } = this.state;
+  const currentCard = filteredCards[currentIndex];
+
+  const handleSelectDeck = useCallback((e) => {
+    setCurrentDeckName(e.target.value);
+    setCurrentIndex(0);
+    setShowBack(false);
+  }, []);
+
+  const handleNewDeckNameChange = useCallback((e) => {
+    setNewDeckName(e.target.value);
+  }, []);
+
+  const handleAddDeck = useCallback(() => {
     if (newDeckName.trim() && !decks[newDeckName]) {
-      this.setState((prevState) => ({
-        decks: { ...prevState.decks, [newDeckName]: [] },
-        currentDeckName: newDeckName,
-        newDeckName: "",
-        currentIndex: 0,
+      setDecks((prev) => ({ ...prev, [newDeckName]: [] }));
+      setCurrentDeckName(newDeckName);
+      setNewDeckName("");
+      setCurrentIndex(0);
+    }
+  }, [newDeckName, decks]);
+
+  const handleFrontChange = useCallback(
+    (e) => setFrontText(e.target.value),
+    [],
+  );
+  const handleBackChange = useCallback((e) => setBackText(e.target.value), []);
+
+  const handleAddCard = useCallback(
+    (e) => {
+      e.preventDefault();
+      if (!frontText.trim() || !backText.trim()) return;
+
+      const newCard = {
+        id: Date.now(),
+        front: frontText,
+        back: backText,
+        learned: false,
+      };
+
+      setDecks((prev) => ({
+        ...prev,
+        [currentDeckName]: [...(prev[currentDeckName] || []), newCard],
       }));
-    }
-  };
+      setFrontText("");
+      setBackText("");
+    },
+    [frontText, backText, currentDeckName],
+  );
 
-  addCard = (e) => {
-    e.preventDefault();
-    const { frontText, backText } = this.state;
-    if (!frontText.trim() || !backText.trim()) return;
+  const handleDeleteCard = useCallback(
+    (id) => {
+      setDecks((prev) => {
+        const updated = prev[currentDeckName].filter((c) => c.id !== id);
+        return { ...prev, [currentDeckName]: updated };
+      });
 
-    const newCard = {
-      id: Date.now(),
-      front: frontText,
-      back: backText,
-      learned: false,
-    };
+      setCurrentIndex((prev) => {
+        const nextLength = currentDeckCards.length - 1;
+        return prev >= nextLength ? Math.max(0, nextLength - 1) : prev;
+      });
+    },
+    [currentDeckName, currentDeckCards.length],
+  );
 
-    const updatedCards = [...this.getCurrentDeck(), newCard];
-    this.updateCurrentDeck(updatedCards);
-    this.setState({ frontText: "", backText: "" });
-  };
+  const handleEditCard = useCallback(
+    (card) => {
+      setFrontText(card.front);
+      setBackText(card.back);
+      handleDeleteCard(card.id);
+    },
+    [handleDeleteCard],
+  );
 
-  deleteCard = (id) => {
-    const updatedCards = this.getCurrentDeck().filter((c) => c.id !== id);
-    this.updateCurrentDeck(updatedCards);
-    if (this.state.currentIndex >= updatedCards.length) {
-      this.setState({ currentIndex: Math.max(0, updatedCards.length - 1) });
-    }
-  };
+  const handleToggleLearned = useCallback(
+    (id) => {
+      setDecks((prev) => ({
+        ...prev,
+        [currentDeckName]: prev[currentDeckName].map((c) =>
+          c.id === id ? { ...c, learned: !c.learned } : c,
+        ),
+      }));
+    },
+    [currentDeckName],
+  );
 
-  editCard = (card) => {
-    this.setState({
-      frontText: card.front,
-      backText: card.back,
-    });
-    this.deleteCard(card.id);
-  };
+  const handleShuffle = useCallback(() => {
+    const shuffled = [...currentDeckCards].sort(() => Math.random() - 0.5);
+    setDecks((prev) => ({ ...prev, [currentDeckName]: shuffled }));
+    setCurrentIndex(0);
+    setShowBack(false);
+  }, [currentDeckCards, currentDeckName]);
 
-  toggleLearned = (id) => {
-    const updatedCards = this.getCurrentDeck().map((c) =>
-      c.id === id ? { ...c, learned: !c.learned } : c,
-    );
-    this.updateCurrentDeck(updatedCards);
-  };
+  return (
+    <div className="container">
+      <h1>Flashcards Manager</h1>
 
-  shuffleDeck = () => {
-    const shuffled = [...this.getCurrentDeck()].sort(() => Math.random() - 0.5);
-    this.updateCurrentDeck(shuffled);
-    this.setState({ currentIndex: 0, showBack: false });
-  };
+      <DeckManager
+        decks={decks}
+        currentDeckName={currentDeckName}
+        onSelectDeck={handleSelectDeck}
+        newDeckName={newDeckName}
+        onNewDeckNameChange={handleNewDeckNameChange}
+        onAddDeck={handleAddDeck}
+      />
 
-  getFilteredCards = () => {
-    const deck = this.getCurrentDeck();
-    return this.state.studyOnlyUnlearned
-      ? deck.filter((c) => !c.learned)
-      : deck;
-  };
+      <CardForm
+        frontText={frontText}
+        backText={backText}
+        onFrontChange={handleFrontChange}
+        onBackChange={handleBackChange}
+        onSubmit={handleAddCard}
+      />
 
-  render() {
-    const {
-      frontText,
-      backText,
-      currentIndex,
-      showBack,
-      studyOnlyUnlearned,
-      currentDeckName,
-      decks,
-      newDeckName,
-    } = this.state;
-    const filteredCards = this.getFilteredCards();
-    const currentCard = filteredCards[currentIndex];
+      <hr />
+      <section className="study-area">
+        <h2>Изучение</h2>
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              checked={studyOnlyUnlearned}
+              onChange={(e) => {
+                setStudyOnlyUnlearned(e.target.checked);
+                setCurrentIndex(0);
+              }}
+            />{" "}
+            Только невыученные
+          </label>
+          <button onClick={handleShuffle} style={{ marginLeft: "10px" }}>
+            Перемешать
+          </button>
+        </div>
 
-    return (
-      <div
-        style={{
-          padding: "20px",
-          maxWidth: "800px",
-          margin: "0 auto",
-          fontFamily: "sans-serif",
-        }}
-      >
-        <h1>Flashcards Manager</h1>
-        <section
-          style={{
-            marginBottom: "20px",
-            padding: "10px",
-            border: "1px solid #ddd",
-          }}
-        >
-          <h3>Колоды</h3>
-          <select
-            value={currentDeckName}
-            onChange={(e) =>
-              this.setState({
-                currentDeckName: e.target.value,
-                currentIndex: 0,
-              })
-            }
-          >
-            {Object.keys(decks).length === 0 && <option>Default</option>}
-            {Object.keys(decks).map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <input
-            placeholder="Новая колода"
-            value={newDeckName}
-            onChange={(e) => this.setState({ newDeckName: e.target.value })}
-            style={{ marginLeft: "10px" }}
-          />
-          <button onClick={this.addNewDeck}>Создать колоду</button>
-        </section>
-
-        <form onSubmit={this.addCard} style={{ marginBottom: "30px" }}>
-          <input
-            placeholder="Лицевая сторона"
-            value={frontText}
-            onChange={(e) => this.setState({ frontText: e.target.value })}
-          />
-          <input
-            placeholder="Оборотная сторона"
-            value={backText}
-            onChange={(e) => this.setState({ backText: e.target.value })}
-          />
-          <button type="submit">Добавить карточку</button>
-        </form>
-
-        <hr />
-
-        <section
-          style={{
-            textAlign: "center",
-            backgroundColor: "#f9f9f9",
-            padding: "20px",
-            borderRadius: "8px",
-          }}
-        >
-          <h2>Изучение</h2>
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                checked={studyOnlyUnlearned}
-                onChange={(e) =>
-                  this.setState({
-                    studyOnlyUnlearned: e.target.checked,
-                    currentIndex: 0,
-                  })
-                }
-              />{" "}
-              Только невыученные
-            </label>
-            <button onClick={this.shuffleDeck} style={{ marginLeft: "10px" }}>
-              Перемешать
+        {filteredCards.length > 0 ? (
+          <div style={{ marginTop: "20px" }}>
+            <div
+              onClick={() => setShowBack(!showBack)}
+              style={{ cursor: "pointer" }}
+            >
+              {showBack ? currentCard.back : currentCard.front}
+            </div>
+            <p>
+              Карточка {currentIndex + 1} из {filteredCards.length}
+            </p>
+            <button
+              disabled={currentIndex === 0}
+              onClick={() => {
+                setCurrentIndex((prev) => prev - 1);
+                setShowBack(false);
+              }}
+            >
+              {" "}
+              Назад{" "}
+            </button>
+            <button
+              disabled={currentIndex === filteredCards.length - 1}
+              onClick={() => {
+                setCurrentIndex((prev) => prev + 1);
+                setShowBack(false);
+              }}
+              style={{ marginLeft: "10px" }}
+            >
+              {" "}
+              Вперед{" "}
             </button>
           </div>
+        ) : (
+          <p style={{ marginTop: "20px" }}>
+            Колода пуста или все карточки выучены!
+          </p>
+        )}
+      </section>
 
-          {filteredCards.length > 0 ? (
-            <div style={{ marginTop: "20px" }}>
-              <div
-                onClick={() => this.setState({ showBack: !showBack })}
-                style={{
-                  height: "150px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  border: "2px solid #333",
-                  borderRadius: "10px",
-                  cursor: "pointer",
-                  fontSize: "1.5rem",
-                  marginBottom: "10px",
-                  backgroundColor: "#fff",
-                }}
-              >
-                {showBack ? currentCard.back : currentCard.front}
-              </div>
-              <p>
-                Карточка {currentIndex + 1} из {filteredCards.length}
-              </p>
-              <button
-                disabled={currentIndex === 0}
-                onClick={() =>
-                  this.setState({
-                    currentIndex: currentIndex - 1,
-                    showBack: false,
-                  })
-                }
-              >
-                {" "}
-                Назад{" "}
-              </button>
-              <button
-                disabled={currentIndex === filteredCards.length - 1}
-                onClick={() =>
-                  this.setState({
-                    currentIndex: currentIndex + 1,
-                    showBack: false,
-                  })
-                }
-                style={{ marginLeft: "10px" }}
-              >
-                {" "}
-                Вперед{" "}
-              </button>
-            </div>
-          ) : (
-            <p>Колода пуста или все карточки выучены!</p>
-          )}
-        </section>
+      <hr />
 
-        <hr />
-
-        <h3>Список всех карточек в "{currentDeckName}"</h3>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ borderBottom: "2px solid #ccc" }}>
-              <th align="left">Лицо</th>
-              <th align="left">Оборот</th>
-              <th align="left">Статус</th>
-              <th align="left">Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {this.getCurrentDeck().map((card) => (
-              <tr key={card.id} style={{ borderBottom: "1px solid #eee" }}>
-                <td>{card.front}</td>
-                <td>{card.back}</td>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={card.learned}
-                    onChange={() => this.toggleLearned(card.id)}
-                  />{" "}
-                  Выучена
-                </td>
-                <td>
-                  <button onClick={() => this.editCard(card)}>Ред.</button>
-                  <button onClick={() => this.deleteCard(card.id)}>
-                    Удал.
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
+      <h3>
+        Список всех карточек в "{currentDeckName}" ({currentDeckCards.length})
+      </h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Лицо</th>
+            <th>Оборот</th>
+            <th>Статус</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {currentDeckCards.map((card) => (
+            <CardTableRow
+              key={card.id}
+              card={card}
+              onToggleLearned={handleToggleLearned}
+              onEdit={handleEditCard}
+              onDelete={handleDeleteCard}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
-export default FlashcardApp;
+export default App;
